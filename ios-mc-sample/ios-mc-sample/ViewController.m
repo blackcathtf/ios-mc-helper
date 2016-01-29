@@ -85,13 +85,15 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
     if (cell==nil) {
         cell=[[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:peerCellIdentifier];
     }
-    cell.textLabel.text=_peerArray[indexPath.row];
+    MCPeerID *peer=_peerArray[indexPath.row];
+    cell.textLabel.text=peer.displayName;
     return cell;
 }
 #pragma mark - UITableViewDelegate
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-
+    [self inviteNearbyPeer:_peerArray[indexPath.row]];
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 #pragma mark - MCNearbyServiceBrowserDelegate
 
@@ -100,8 +102,8 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
       withDiscoveryInfo:(nullable NSDictionary<NSString *, NSString *> *)info
 {
     NSLog(@"OH MY GOD! I FOUND ONE %@",peerID.displayName);
-    if (![_peerArray containsObject:peerID.displayName]&&![peerID.displayName isEqualToString:_peerName]) {
-        [_peerArray addObject:peerID.displayName];
+    if (![_peerArray containsObject:peerID]&&![peerID.displayName isEqualToString:_peerName]) {
+        [_peerArray addObject:peerID];
         [_tableView reloadData];
     }
 }
@@ -110,8 +112,8 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
 - (void)browser:(MCNearbyServiceBrowser *)browser lostPeer:(MCPeerID *)peerID
 {
     NSLog(@"OH MY GOD! I LOST ONE %@",peerID.displayName);
-    if ([_peerArray containsObject:peerID.displayName]) {
-        [_peerArray removeObject:peerID.displayName];
+    if ([_peerArray containsObject:peerID]) {
+        [_peerArray removeObject:peerID];
         [_tableView reloadData];
     }
 
@@ -120,7 +122,16 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
 // Remote peer changed state.
 - (void)session:(MCSession *)session peer:(MCPeerID *)peerID didChangeState:(MCSessionState)state
 {
-
+    switch (state) {
+        case MCSessionStateConnected:
+            NSLog(@"Connected");
+            
+        case MCSessionStateConnecting:
+            NSLog(@"Connecting");
+            
+        case MCSessionStateNotConnected:
+            NSLog(@"NotConnected");
+    }
 }
 
 // Received data from remote peer.
@@ -175,6 +186,10 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
     _noticeLab.hidden=YES;
     [self advertiserSwitchDidChange:nil];
 }
+-(void)inviteNearbyPeer:(MCPeerID*)peerID
+{
+    [_nearbyBrowser invitePeer:peerID toSession:_session withContext:nil timeout:30];
+}
 #pragma mark - event action
 - (IBAction)advertiserSwitchDidChange:(id)sender {
     if (_AdSwitch.on) {
@@ -206,11 +221,12 @@ NSString * const  peerCellIdentifier=@"peerCellIdentifier";
     if (_peerArray==nil) {
         _peerArray =[[NSMutableArray alloc]init];
     }
+    [_peerArray removeAllObjects];
 }
 -(void)initSession
 {
     MCPeerID *peerID = [[MCPeerID alloc] initWithDisplayName:_peerName];
-    _session=[[MCSession alloc] initWithPeer:peerID securityIdentity:nil encryptionPreference:MCEncryptionRequired];
+    _session=[[MCSession alloc] initWithPeer:peerID securityIdentity:nil encryptionPreference:MCEncryptionNone];
     _session.delegate = self;
 
 }
